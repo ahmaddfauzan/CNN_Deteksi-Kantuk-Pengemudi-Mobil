@@ -39,6 +39,8 @@ thicc = 2
 rpred = [1]
 lpred = [1]
 
+ALARM_THRESHOLD = 15
+
 # MAIN LOOP
 
 while True:
@@ -81,117 +83,43 @@ while True:
         )
 
     # RIGHT EYE
-
     for (x, y, w, h) in right_eye:
-
         r_eye = frame[y:y+h, x:x+w]
-
-        r_eye = cv2.cvtColor(
-            r_eye,
-            cv2.COLOR_BGR2GRAY
-        )
-
-        r_eye = cv2.resize(
-            r_eye,
-            (24, 24)
-        )
-
+        r_eye = cv2.cvtColor(r_eye, cv2.COLOR_BGR2GRAY)
+        r_eye = cv2.resize(r_eye, (24, 24))
         r_eye = r_eye / 255.0
-
-        r_eye = r_eye.reshape(
-            24,
-            24,
-            1
-        )
-
-        r_eye = np.expand_dims(
-            r_eye,
-            axis=0
-        )
-
-        prediction = model.predict(
-            r_eye,
-            verbose=0
-        )
-
-        rpred = np.argmax(
-            prediction,
-            axis=1
-        )
-
+        r_eye = r_eye.reshape(24, 24, 1)
+        r_eye = np.expand_dims(r_eye, axis=0)
+        
+        prediction = model.predict(r_eye, verbose=0)
+        rpred = np.argmax(prediction, axis=1)
         break
 
     # LEFT EYE
-
     for (x, y, w, h) in left_eye:
-
         l_eye = frame[y:y+h, x:x+w]
-
-        l_eye = cv2.cvtColor(
-            l_eye,
-            cv2.COLOR_BGR2GRAY
-        )
-
-        l_eye = cv2.resize(
-            l_eye,
-            (24, 24)
-        )
-
+        l_eye = cv2.cvtColor(l_eye, cv2.COLOR_BGR2GRAY)
+        l_eye = cv2.resize(l_eye, (24, 24))
         l_eye = l_eye / 255.0
-
-        l_eye = l_eye.reshape(
-            24,
-            24,
-            1
-        )
-
-        l_eye = np.expand_dims(
-            l_eye,
-            axis=0
-        )
-
-        prediction = model.predict(
-            l_eye,
-            verbose=0
-        )
-
-        lpred = np.argmax(
-            prediction,
-            axis=1
-        )
-
+        l_eye = l_eye.reshape(24, 24, 1)
+        l_eye = np.expand_dims(l_eye, axis=0)
+        
+        prediction = model.predict(l_eye, verbose=0)
+        lpred = np.argmax(prediction, axis=1)
         break
 
     # DROWSINESS LOGIC
-
     if rpred[0] == 0 and lpred[0] == 0:
-
         score += 1
-
         cv2.putText(
-            frame,
-            "Sleepy!",
-            (10, height - 20),
-            font,
-            1,
-            (255, 255, 255),
-            1,
-            cv2.LINE_AA
+            frame, "Sleepy!", (10, height - 20), 
+            font, 1, (255, 255, 255), 1, cv2.LINE_AA
         )
-
     else:
-
         score -= 1
-
         cv2.putText(
-            frame,
-            "Alert",
-            (10, height - 20),
-            font,
-            1,
-            (255, 255, 255),
-            1,
-            cv2.LINE_AA
+            frame, "Alert", (10, height - 20), 
+            font, 1, (255, 255, 255), 1, cv2.LINE_AA
         )
 
     if score < 0:
@@ -208,18 +136,16 @@ while True:
         cv2.LINE_AA
     )
 
-    # ALARM
-
-    if score > 5:
-
+    # ALARM LOGIC (Sekarang berada di dalam loop)
+    if score >= ALARM_THRESHOLD:
         if not mixer.get_busy():
-            sound.play()
+            sound.play(-1)
 
+        # Efek ketebalan border berkedip
         if thicc < 16:
             thicc += 2
         else:
             thicc -= 2
-
             if thicc < 2:
                 thicc = 2
 
@@ -230,16 +156,22 @@ while True:
             (0, 0, 255),
             thicc
         )
+    else:
+        # Jika score turun di bawah 15, alarm langsung mati seketika
+        if mixer.get_busy():
+            sound.stop()
 
     cv2.imshow(
         "Driver Drowsiness Detection",
         frame
     )
 
-    if cv2.waitKey(1) & 0xFF == ord("q"):
+    # Tekan 'q' pada keyboard untuk keluar dari aplikasi
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 # CLEANUP
-
+if mixer.get_busy():
+    sound.stop()
 cap.release()
 cv2.destroyAllWindows()
